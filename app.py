@@ -7,9 +7,9 @@ import os
 with open("nutrition_df.pkl", "rb") as f:
     df = pickle.load(f)
 
+#app = Flask(__name__)
 app = Flask(__name__)
-# app = Flask(__name__)
-# CORS(app)
+CORS(app)
 
 
 # BMI functions
@@ -162,4 +162,5 @@ def recommend():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
+
     app.run(host="0.0.0.0", port=port)
