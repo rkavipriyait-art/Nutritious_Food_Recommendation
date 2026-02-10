@@ -3,16 +3,23 @@ from flask_cors import CORS
 import pickle
 import os
 
+# -----------------------------
 # Load preprocessed DataFrame
-with open("nutrition_df.pkl", "rb") as f:
+# -----------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+with open(os.path.join(BASE_DIR, "nutrition_df.pkl"), "rb") as f:
     df = pickle.load(f)
 
-#app = Flask(__name__)
+# -----------------------------
+# App setup
+# -----------------------------
 app = Flask(__name__)
 CORS(app)
 
-
-# BMI functions
+# -----------------------------
+# BMI helpers
+# -----------------------------
 def bmi_category(bmi):
     if bmi < 18.5:
         return "Underweight"
@@ -40,127 +47,241 @@ bmi_cluster_pref = {
 
 dietary_options = ["Vegan", "Vegetarian", "Omnivore", "Pescatarian"]
 
-
-# Meal recommendation function
+# -----------------------------
+# Meal recommendation
+# -----------------------------
 def recommend_meals(bmi_cat, dietary_pref=None):
     preferred_clusters = bmi_cluster_pref.get(bmi_cat, [])
     recommendations = df[df["Cluster_Type"].isin(preferred_clusters)]
 
     if dietary_pref:
         recommendations = recommendations[
-            recommendations["Dietary Preference"].fillna("").str.contains(dietary_pref, case=False)
+            recommendations["Dietary Preference"]
+            .fillna("")
+            .str.contains(dietary_pref, case=False)
         ]
 
-    breakfast = recommendations["Breakfast Suggestion"].dropna().unique().tolist()
-    lunch = recommendations["Lunch Suggestion"].dropna().unique().tolist()
-    dinner = recommendations["Dinner Suggestion"].dropna().unique().tolist()
-    snacks = recommendations["Snack Suggestion"].dropna().unique().tolist()
+    def get_list(col):
+        return recommendations[col].dropna().unique().tolist()
 
-    # Fallback if no meals found
-    if not (breakfast or lunch or dinner or snacks):
-        breakfast = df["Breakfast Suggestion"].dropna().unique().tolist()
-        lunch = df["Lunch Suggestion"].dropna().unique().tolist()
-        dinner = df["Dinner Suggestion"].dropna().unique().tolist()
-        snacks = df["Snack Suggestion"].dropna().unique().tolist()
-
-    return {
-        "Breakfast": breakfast,
-        "Lunch": lunch,
-        "Dinner": dinner,
-        "Snacks": snacks
+    meals = {
+        "Breakfast": get_list("Breakfast Suggestion"),
+        "Lunch": get_list("Lunch Suggestion"),
+        "Dinner": get_list("Dinner Suggestion"),
+        "Snacks": get_list("Snack Suggestion"),
     }
 
+    if not any(meals.values()):
+        meals = {
+            "Breakfast": df["Breakfast Suggestion"].dropna().unique().tolist(),
+            "Lunch": df["Lunch Suggestion"].dropna().unique().tolist(),
+            "Dinner": df["Dinner Suggestion"].dropna().unique().tolist(),
+            "Snacks": df["Snack Suggestion"].dropna().unique().tolist(),
+        }
 
-# HTML template
+    return meals
+
+# -----------------------------
+# HTML template (beautiful + animated)
+# -----------------------------
 form_html = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Meal Recommendation</title>
+<meta charset="UTF-8">
+<title>Meal Recommendation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card {
+    background: #fff;
+    max-width: 520px;
+    width: 100%;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 24px;
+    color: #2d3748;
+}
+
+label {
+    font-weight: 600;
+    color: #4a5568;
+    display: block;
+    margin-bottom: 6px;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e0;
+}
+
+button {
+    width: 100%;
+    background: #667eea;
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #5a67d8;
+}
+
+.results {
+    margin-top: 28px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 20px;
+    animation: fadeUp 0.6s ease-out forwards;
+}
+
+.badge {
+    background: #edf2f7;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.meal {
+    opacity: 0;
+    margin-top: 14px;
+    animation: fadeUp 0.6s ease-out forwards;
+}
+
+.meal:nth-child(1) { animation-delay: 0.1s; }
+.meal:nth-child(2) { animation-delay: 0.2s; }
+.meal:nth-child(3) { animation-delay: 0.3s; }
+.meal:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+ul {
+    padding-left: 18px;
+}
+
+li {
+    color: #4a5568;
+    margin-bottom: 6px;
+}
+</style>
 </head>
+
 <body>
-    <h2>Enter Your Details</h2>
-    <form method="post" action="/">
-        Height (cm): <input type="text" name="height" required><br><br>
-        Weight (kg): <input type="text" name="weight" required><br><br>
-        Dietary Preference:
+<div class="card">
+    <h2>🥗 Meal Recommendation</h2>
+
+    <form method="post">
+        <label>Height (cm)</label>
+        <input type="number" name="height" step="0.1" required>
+
+        <label>Weight (kg)</label>
+        <input type="number" name="weight" step="0.1" required>
+
+        <label>Dietary Preference</label>
         <select name="dietary_preference">
+            <option value="">No preference</option>
             {% for option in dietary_options %}
-                <option value="{{ option if option != 'None' else '' }}"
-                    {% if result and result.dietary_pref == option %} selected {% endif %}>
-                    {{ option }}
-                </option>
+            <option value="{{ option }}" {% if result and result.dietary_pref == option %}selected{% endif %}>
+                {{ option }}
+            </option>
             {% endfor %}
-        </select><br><br>
-        <input type="submit" value="Get Recommendations">
+        </select>
+
+        <button type="submit">Get Recommendations</button>
     </form>
 
     {% if result %}
-    <hr>
-    <h3>Results:</h3>
-    <p><b>BMI:</b> {{ result.BMI }}</p>
-    <p><b>BMI Category:</b> {{ result.BMI_Category }}</p>
-    <p><b>Daily Calorie Target:</b> {{ result.Daily_Calorie_Target }}</p>
-    <h4>Recommended Meals:</h4>
-    <ul>
+    <div class="results">
+        <p><strong>BMI:</strong> {{ result.BMI }}</p>
+        <p>
+            <strong>Category:</strong> {{ result.BMI_Category }}
+            <span class="badge">{{ result.Daily_Calorie_Target }}</span>
+        </p>
+
         {% for meal, items in result.Recommended_Meals.items() %}
-        <li><b>{{ meal }}:</b> {{ items | join(', ') if items else 'No suggestions' }}</li>
+        <div class="meal">
+            <strong>{{ meal }}</strong>
+            <ul>
+                {% for item in items[:5] %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
         {% endfor %}
-    </ul>
+    </div>
     {% endif %}
+</div>
 </body>
 </html>
 """
 
-
-# Single endpoint for both HTML and JSON
+# -----------------------------
+# Route
+# -----------------------------
 @app.route("/", methods=["GET", "POST"])
 def recommend():
     result = None
 
     if request.method == "POST":
-        # Check if JSON or form submission
-        if request.is_json:
-            data = request.get_json()
+        data = request.get_json() if request.is_json else request.form
+
+        try:
             height = float(data.get("height"))
             weight = float(data.get("weight"))
-            dietary_pref = data.get("dietary_preference", None)
-            if dietary_pref == "":
-                dietary_pref = None
-        else:
-            # Form submission
-            height = float(request.form.get("height"))
-            weight = float(request.form.get("weight"))
-            dietary_pref = request.form.get("dietary_preference", None)
-            if dietary_pref == "":
-                dietary_pref = None
+            dietary_pref = data.get("dietary_preference") or None
+        except Exception:
+            return jsonify({"error": "Invalid input"}), 400
 
-        # Calculate BMI
         bmi = weight / ((height / 100) ** 2)
         bmi_cat = bmi_category(bmi)
-        calorie_target = daily_calorie_target[bmi_cat]
-        meals = recommend_meals(bmi_cat, dietary_pref)
 
         result = {
             "BMI": round(bmi, 2),
             "BMI_Category": bmi_cat,
-            "Daily_Calorie_Target": calorie_target,
-            "Recommended_Meals": meals,
+            "Daily_Calorie_Target": daily_calorie_target[bmi_cat],
+            "Recommended_Meals": recommend_meals(bmi_cat, dietary_pref),
             "dietary_pref": dietary_pref or "None"
         }
 
-        # If JSON request, return JSON
         if request.is_json:
             return jsonify(result)
 
-    # For GET request or form submission, render HTML
     return render_template_string(form_html, result=result, dietary_options=dietary_options)
 
-
-# if __name__ == "__main__":
-#     app.run(debug=True)
-
+# -----------------------------
+# Run (Render compatible)
+# -----------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-
     app.run(host="0.0.0.0", port=port)
