@@ -82,7 +82,7 @@ def recommend_meals(bmi_cat, dietary_pref=None):
     return meals
 
 # -----------------------------
-# HTML template
+# HTML template (beautiful + animated)
 # -----------------------------
 form_html = """
 <!DOCTYPE html>
@@ -170,12 +170,25 @@ button:hover {
     animation: fadeUp 0.6s ease-out forwards;
 }
 
+.meal:nth-child(1) { animation-delay: 0.1s; }
+.meal:nth-child(2) { animation-delay: 0.2s; }
+.meal:nth-child(3) { animation-delay: 0.3s; }
+.meal:nth-child(4) { animation-delay: 0.4s; }
+
 @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-ul { padding-left: 18px; }
+ul {
+    padding-left: 18px;
+}
 
 li {
     color: #4a5568;
@@ -199,7 +212,9 @@ li {
         <select name="dietary_preference">
             <option value="">No preference</option>
             {% for option in dietary_options %}
-            <option value="{{ option }}">{{ option }}</option>
+            <option value="{{ option }}" {% if result and result.dietary_pref == option %}selected{% endif %}>
+                {{ option }}
+            </option>
             {% endfor %}
         </select>
 
@@ -224,24 +239,6 @@ li {
             </ul>
         </div>
         {% endfor %}
-
-        <!-- Notes Section -->
-        <div class="meal">
-            <strong>📝 Notes</strong>
-            <ul>
-                <li><strong>Eat good, feel good, live good.</strong></li>
-                <li>
-                    Having nutritious food at the right time is crucial for optimizing metabolism,
-                    sustaining energy, and supporting long-term health.
-                </li>
-                <li><strong>Meal Timing Guidelines:</strong></li>
-                <li>🍳 Breakfast: <strong>Before 9 AM</strong></li>
-                <li>🍛 Lunch: <strong>1 – 2 PM</strong></li>
-                <li>🥜 Snacks: <strong>3 – 4 PM</strong></li>
-                <li>🍽️ Dinner: <strong>Before 7 – 8 PM</strong></li>
-            </ul>
-        </div>
-
     </div>
     {% endif %}
 </div>
@@ -274,6 +271,7 @@ def recommend():
             "BMI_Category": bmi_cat,
             "Daily_Calorie_Target": daily_calorie_target[bmi_cat],
             "Recommended_Meals": recommend_meals(bmi_cat, dietary_pref),
+            "dietary_pref": dietary_pref or "None"
         }
 
         if request.is_json:
@@ -282,8 +280,9 @@ def recommend():
     return render_template_string(form_html, result=result, dietary_options=dietary_options)
 
 # -----------------------------
-# Run
+# Run (Render compatible)
 # -----------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
